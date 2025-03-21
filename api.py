@@ -22,7 +22,7 @@ class Language(str, Enum):
     ko = "ko"
     nospeech = "nospeech"
 
-model_dir = "iic/SenseVoiceSmall"
+model_dir = "/workspace/models/iic/SenseVoiceSmall"
 m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device=os.getenv("SENSEVOICE_DEVICE", "cuda:0"))
 m.eval()
 
