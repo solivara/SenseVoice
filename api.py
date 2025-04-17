@@ -2,16 +2,15 @@
 # export SENSEVOICE_DEVICE=cuda:1
 
 import os, re
-from fastapi import FastAPI, File, Form
+from fastapi import FastAPI, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from typing_extensions import Annotated
-from typing import List, Optional
+from typing import List
 from enum import Enum
 import torchaudio
 from model import SenseVoiceSmall
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 from io import BytesIO
-from pydantic import BaseModel
 
 
 class Language(str, Enum):
@@ -87,19 +86,6 @@ async def asr(
     return {"result": res[0]}
 
 
-class TranscriptionRequest(BaseModel):
-    file: bytes = File(...),
-    model: str = Form("SenseVoiceSmall"),
-    language: Annotated[Language, Form(description="language of audio content")] = "auto"
-    prompt: Optional[str] = Form(None),
-    response_format: Optional[str] = Form("json"),
-    temperature: Optional[float] = Form(0)
-
-
-class TranscriptionResponse(BaseModel):
-    text: str
-
-
 @app.post("/v1/audio/transcriptions")
 async def transcriptions(
         file: Annotated[bytes, File(description="wav or mp3 audios in 16KHz")],
@@ -125,7 +111,7 @@ async def transcriptions(
         )
 
         if len(res) == 0 or len(res[0]) == 0:
-            return TranscriptionResponse(text="")
+            return {"text": ""}
 
         # Process result
         result = res[0][0]
@@ -133,7 +119,7 @@ async def transcriptions(
         result["clean_text"] = re.sub(regex, "", result["text"], 0, re.MULTILINE)
         result["text"] = rich_transcription_postprocess(result["text"])
 
-        return TranscriptionResponse(text=result["clean_text"])
+        return {"text": result["clean_text"]}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
