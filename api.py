@@ -50,7 +50,7 @@ async def root():
 
 
 @app.post("/api/v1/asr")
-async def turn_audio_to_text(
+async def asr(
         files: Annotated[List[bytes], File(description="wav or mp3 audios in 16KHz")],
         keys: Annotated[str, Form(description="name of each audio joined with comma")],
         lang: Annotated[Language, Form(description="language of audio content")] = "auto"
@@ -101,7 +101,11 @@ class TranscriptionResponse(BaseModel):
 
 
 @app.post("/v1/audio/transcriptions")
-async def create_transcription(request: TranscriptionRequest):
+async def transcriptions(
+        file: Annotated[bytes, File(description="wav or mp3 audios in 16KHz")],
+        model: Annotated[str, Form(description="model name")],
+        language: Annotated[Language, Form(description="language of audio content")] = "auto"
+):
     try:
         # Process audio file
         file_io = BytesIO(file)
@@ -112,7 +116,7 @@ async def create_transcription(request: TranscriptionRequest):
         # Run inference
         res = m.inference(
             data_in=[data_or_path_or_list],
-            language=request.language,
+            language=language,
             use_itn=False,
             ban_emo_unk=False,
             key=["audio_file"],
