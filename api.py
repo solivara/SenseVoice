@@ -5,7 +5,7 @@ import os, re
 from fastapi import FastAPI, File, Form
 from fastapi.responses import HTMLResponse
 from typing_extensions import Annotated
-from typing import List
+from typing import List, Optional
 from enum import Enum
 import torchaudio
 from model import SenseVoiceSmall
