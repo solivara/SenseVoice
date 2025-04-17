@@ -88,12 +88,12 @@ async def turn_audio_to_text(
 
 
 class TranscriptionRequest(BaseModel):
-    file: bytes
-    model: str = "SenseVoiceSmall"
+    file: bytes = File(...),
+    model: str = Form("SenseVoiceSmall"),
     language: Annotated[Language, Form(description="language of audio content")] = "auto"
-    prompt: Optional[str] = None
-    response_format: Optional[str] = "json"
-    temperature: Optional[float] = 0
+    prompt: Optional[str] = Form(None),
+    response_format: Optional[str] = Form("json"),
+    temperature: Optional[float] = Form(0)
 
 
 class TranscriptionResponse(BaseModel):
