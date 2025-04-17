@@ -11,6 +11,7 @@ import torchaudio
 from model import SenseVoiceSmall
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 from io import BytesIO
+from pydantic import BaseModel
 
 
 class Language(str, Enum):
