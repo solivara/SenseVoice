@@ -22,6 +22,7 @@ class Language(str, Enum):
     ko = "ko"
     nospeech = "nospeech"
 
+
 model_dir = "/workspace/models/iic/SenseVoiceSmall"
 m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device=os.getenv("SENSEVOICE_DEVICE", "cuda:0"))
 m.eval()
@@ -46,8 +47,13 @@ async def root():
     </html>
     """
 
+
 @app.post("/api/v1/asr")
-async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav or mp3 audios in 16KHz")], keys: Annotated[str, Form(description="name of each audio joined with comma")], lang: Annotated[Language, Form(description="language of audio content")] = "auto"):
+async def turn_audio_to_text(
+        files: Annotated[List[bytes], File(description="wav or mp3 audios in 16KHz")],
+        keys: Annotated[str, Form(description="name of each audio joined with comma")],
+        lang: Annotated[Language, Form(description="language of audio content")] = "auto"
+):
     audios = []
     audio_fs = 0
     for file in files:
@@ -64,7 +70,7 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
         key = keys.split(",")
     res = m.inference(
         data_in=audios,
-        language=lang, # "zh", "en", "yue", "ja", "ko", "nospeech"
+        language=lang,  # "zh", "en", "yue", "ja", "ko", "nospeech"
         use_itn=False,
         ban_emo_unk=False,
         key=key,
@@ -78,3 +84,51 @@ async def turn_audio_to_text(files: Annotated[List[bytes], File(description="wav
         it["clean_text"] = re.sub(regex, "", it["text"], 0, re.MULTILINE)
         it["text"] = rich_transcription_postprocess(it["text"])
     return {"result": res[0]}
+
+
+class TranscriptionRequest(BaseModel):
+    file: bytes
+    model: str = "SenseVoiceSmall"
+    language: Annotated[Language, Form(description="language of audio content")] = "auto"
+    prompt: Optional[str] = None
+    response_format: Optional[str] = "json"
+    temperature: Optional[float] = 0
+
+
+class TranscriptionResponse(BaseModel):
+    text: str
+
+
+@app.post("/v1/audio/transcriptions")
+async def create_transcription(request: TranscriptionRequest):
+    try:
+        # Process audio file
+        file_io = BytesIO(file)
+        data_or_path_or_list, audio_fs = torchaudio.load(file_io)
+        data_or_path_or_list = data_or_path_or_list.mean(0)
+        file_io.close()
+
+        # Run inference
+        res = m.inference(
+            data_in=[data_or_path_or_list],
+            language=request.language,
+            use_itn=False,
+            ban_emo_unk=False,
+            key=["audio_file"],
+            fs=audio_fs,
+            **kwargs,
+        )
+
+        if len(res) == 0 or len(res[0]) == 0:
+            return TranscriptionResponse(text="")
+
+        # Process result
+        result = res[0][0]
+        result["raw_text"] = result["text"]
+        result["clean_text"] = re.sub(regex, "", result["text"], 0, re.MULTILINE)
+        result["text"] = rich_transcription_postprocess(result["text"])
+
+        return TranscriptionResponse(text=result["clean_text"])
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
